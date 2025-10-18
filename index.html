@@ -224,7 +224,45 @@
     const PATTERN_RANK_MAP = { 'なし': 'D(単色)', 'ツートン': 'C', 'ボーダー': 'C', 'ストライプ': 'C', '水玉': 'C', 'アニマル': 'C', '斜めボーダー': 'C', 'ギンガムチェック': 'B', 'ダイヤ': 'B', '鱗文': 'B', 'シェブロン': 'B', 'バブルドット': 'B', 'スペード': 'B', 'ピンドット': 'A', 'レンガ': 'A', 'スプラッシュ': 'A', 'マーブル': 'A', 'ヘビ': 'A', 'しずく': 'A', 'うろこ': 'A', 'トラ': 'S', '花': 'S', '星': 'S' };
     function applyAppearanceInfo(championCardId, statusText) { const championEl = document.getElementById(championCardId); const paletteContainer = championEl.querySelector('.custom-color-palette'); if (!paletteContainer) return; paletteContainer.innerHTML = ''; if (!statusText) return; const colorMatch = statusText.match(/色:([\s\S]*?)(柄:|髪:|眉:|目:|鼻:|頬:|口:|$)/); if (colorMatch && colorMatch[1]) { const colorNames = colorMatch[1].trim().split(/\s+/); colorNames.forEach(name => { if (COLOR_MAP[name]) { const item = document.createElement('div'); item.className = 'palette-item'; const box = document.createElement('div'); box.className = 'palette-color-box'; box.style.backgroundColor = COLOR_MAP[name]; const text = document.createTextNode(name); item.appendChild(box); item.appendChild(text); paletteContainer.appendChild(item); } }); } const patternMatch = statusText.match(/柄:([\s\S]*?)(髪:|髪色:|肌色:|眉:|目:|鼻:|頬:|口:|$)/); if (patternMatch && patternMatch[1]) { const patternName = patternMatch[1].trim(); const rank = PATTERN_RANK_MAP[patternName]; if (rank) { const item = document.createElement('div'); item.className = 'palette-item pattern-rank'; item.textContent = `柄ランク:${rank}`; let borderColor = 'var(--primary-accent)'; if (rank === 'D(単色)') { borderColor = '#FFFFFF'; } else if (rank === 'C') { borderColor = '#90EE90'; } else if (rank === 'B') { borderColor = '#ADD8E6'; } else if (rank === 'A') { borderColor = '#F08080'; } item.style.borderColor = borderColor; paletteContainer.appendChild(item); } } }
 
-    function setupQRCodeModal() { const modalOverlay = document.getElementById('modal-overlay'); const modalContent = document.getElementById('modal-content'); const closeModalBtn = document.getElementById('close-modal'); const closeModal = () => { modalOverlay.style.display = 'none'; modalContent.innerHTML = ''; }; document.querySelectorAll('.qr-code').forEach(qrEl => { qrEl.addEventListener('click', (event) => { const qrData = event.currentTarget.dataset.id; if (qrData) { const qrContainer = document.createElement('div'); qrContainer.style.background = 'white'; qrContainer.style.padding = '15px'; qrContainer.style.borderRadius = '8px'; modalContent.appendChild(qrContainer); new QRCode(qrContainer, { text: qrData, width: 400, height: 400 }); modalOverlay.style.display = 'flex'; } }); }); closeModalBtn.addEventListener('click', closeModal); modalOverlay.addEventListener('click', (event) => { if (event.target === modalOverlay) { closeModal(); } }); }
+    function setupQRCodeModal() {
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        const closeModalBtn = document.getElementById('close-modal');
+        const closeModal = () => {
+            modalOverlay.style.display = 'none';
+            modalContent.innerHTML = '';
+        };
+        document.querySelectorAll('.qr-code').forEach(qrEl => {
+            qrEl.addEventListener('click', (event) => {
+                const qrData = event.currentTarget.dataset.id;
+                if (qrData) {
+                    const qrContainer = document.createElement('div');
+                    qrContainer.style.background = 'white';
+                    qrContainer.style.padding = '15px';
+                    qrContainer.style.borderRadius = '8px';
+                    modalContent.appendChild(qrContainer);
+                    
+                    // ▼▼▼ 変更点 2 ▼▼▼
+                    // 英数字のみを抽出してQRコードのデータとする
+                    const alphanumericOnlyQrData = qrData.replace(/[^a-zA-Z0-9]/g, '');
+                    new QRCode(qrContainer, {
+                        text: alphanumericOnlyQrData, // 英数字のみのデータを渡す
+                        width: 400,
+                        height: 400
+                    });
+                    // ▲▲▲ 変更点 2 ▲▲▲
+
+                    modalOverlay.style.display = 'flex';
+                }
+            });
+        });
+        closeModalBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (event) => {
+            if (event.target === modalOverlay) {
+                closeModal();
+            }
+        });
+    }
 
     document.getElementById('generate-btn').addEventListener('click', () => {
         const input = document.getElementById('rsid-input').value.trim();
@@ -287,7 +325,19 @@
             container.insertAdjacentHTML('beforeend', html);
             document.querySelectorAll('.player-card').forEach(card => card.classList.add('animated'));
             document.querySelectorAll('.round').forEach(roundEl => { if (roundEl.querySelectorAll('.player-card').length >= 7) { roundEl.classList.add('is-crowded'); } });
-            document.querySelectorAll('.qr-code').forEach(el => { if (el.dataset.id) { new QRCode(el, { text: el.dataset.id, width: 150, height: 150 }); } });
+            
+            document.querySelectorAll('.qr-code').forEach(el => {
+                if (el.dataset.id) {
+                    const originalId = el.dataset.id;
+                    const alphanumericOnlyId = originalId.replace(/[^a-zA-Z0-9]/g, '');
+                    new QRCode(el, {
+                        text: alphanumericOnlyId, 
+                        width: 150,
+                        height: 150
+                    });
+                }
+            });
+
             setupQRCodeModal();
             const championNode = reversedRounds[reversedRounds.length - 1][0];
             if (championNode) {
