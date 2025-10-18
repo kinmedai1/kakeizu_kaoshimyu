@@ -242,15 +242,12 @@
                     qrContainer.style.borderRadius = '8px';
                     modalContent.appendChild(qrContainer);
                     
-                    // ▼▼▼ 変更点 2 ▼▼▼
-                    // 英数字のみを抽出してQRコードのデータとする
                     const alphanumericOnlyQrData = qrData.replace(/[^a-zA-Z0-9]/g, '');
                     new QRCode(qrContainer, {
-                        text: alphanumericOnlyQrData, // 英数字のみのデータを渡す
+                        text: alphanumericOnlyQrData, 
                         width: 400,
                         height: 400
                     });
-                    // ▲▲▲ 変更点 2 ▲▲▲
 
                     modalOverlay.style.display = 'flex';
                 }
