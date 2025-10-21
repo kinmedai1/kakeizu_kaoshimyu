@@ -17,7 +17,7 @@
             --text-color: #e0e0e0;
             --text-muted: #9a9a9a;
             --line-color: #3ce4c8;
-            --line-offset-y: 90px;
+            --line-offset-y: 200px;
         }
 
         body {
@@ -216,7 +216,73 @@
 
     function parseNode(str) { str = str.trim(); if (!str.startsWith("(")) { const parts = str.split(/\s+/); const id = parts.shift(); const name = parts.join(" "); return { id, name, participants: [] }; } let balance = 0, end = -1; for (let i = 0; i < str.length; i++) { if (str[i] === "(") balance++; else if (str[i] === ")") balance--; if (balance === 0) { end = i; break; } } if (end === -1) throw new Error("括弧の対応が正しくありません。"); const winner = str.substring(end + 1).trim(); const inside = str.substring(1, end).trim(); let depth = 0, split = -1; for (let i = 0; i < inside.length; i++) { if (inside[i] === "(") depth++; else if (inside[i] === ")") depth--; else if (inside[i] === "+" && depth === 0) { split = i; break; } } if (split === -1) throw new Error("'+' 区切りが見つかりません。"); const left = inside.substring(0, split).trim(); const right = inside.substring(split + 1).trim(); return { name: winner, participants: [parseNode(left), parseNode(right)], id: null }; }
 
-    function drawLines(rounds) { if (!rounds || rounds.length === 0) return; const container = document.getElementById('bracket-container'); const svg = document.getElementById('bracket-lines'); svg.innerHTML = ''; svg.setAttribute('width', container.scrollWidth); svg.setAttribute('height', container.scrollHeight); const style = getComputedStyle(document.documentElement); const lineOffsetY = parseFloat(style.getPropertyValue('--line-offset-y')); function getElementPosition(id) { const el = document.getElementById(id); if (!el) return null; const containerRect = container.getBoundingClientRect(); const elRect = el.getBoundingClientRect(); return { cx: elRect.left - containerRect.left + container.scrollLeft + elRect.width / 2, top: elRect.top - containerRect.top + container.scrollTop, bottom: elRect.top - containerRect.top + container.scrollTop + elRect.height, }; } function connectCards(fromIds, toId, delay) { const toPos = getElementPosition(toId); if (!toPos) return; const fromPositions = fromIds.map(getElementPosition).filter(Boolean); if (fromPositions.length === 0) return; const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); let pathData = ""; const maxBottom = Math.max(...fromPositions.map(pos => pos.bottom)); const verticalLineY = maxBottom + lineOffsetY / 2; fromPositions.forEach(fromPos => { pathData += `M ${fromPos.cx},${fromPos.bottom} L ${fromPos.cx},${verticalLineY} `; }); if (fromPositions.length > 1) { const firstX = fromPositions[0].cx; const lastX = fromPositions[fromPositions.length - 1].cx; pathData += `M ${firstX},${verticalLineY} L ${lastX},${verticalLineY} `; } const midX = fromPositions.reduce((sum, p) => sum + p.cx, 0) / fromPositions.length; pathData += `M ${midX},${verticalLineY} L ${toPos.cx},${verticalLineY} L ${toPos.cx},${toPos.top} `; path.setAttribute("d", pathData); const length = path.getTotalLength(); path.style.strokeDasharray = length; path.style.strokeDashoffset = length; path.style.animationDelay = `${delay}s`; path.classList.add('animated'); svg.appendChild(path); } for (let i = 0; i < rounds.length - 1; i++) { const parentRound = rounds[i+1]; parentRound.forEach(parentNode => { if(parentNode.participants && parentNode.participants.length > 0) { const childIds = parentNode.participants.map(p => p.uniqueId); const lineAnimationDelay = 0.3 + (i * 0.2); connectCards(childIds, parentNode.uniqueId, lineAnimationDelay); } }); } }
+    function drawLines(rounds) {
+        if (!rounds || rounds.length === 0) return;
+        const container = document.getElementById('bracket-container');
+        const svg = document.getElementById('bracket-lines');
+        svg.innerHTML = '';
+        svg.setAttribute('width', container.scrollWidth);
+        svg.setAttribute('height', container.scrollHeight);
+        const style = getComputedStyle(document.documentElement);
+        const lineOffsetY = parseFloat(style.getPropertyValue('--line-offset-y'));
+
+        function getElementPosition(id) {
+            const el = document.getElementById(id);
+            if (!el) return null;
+            const containerRect = container.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            return {
+                cx: elRect.left - containerRect.left + container.scrollLeft + elRect.width / 2,
+                top: elRect.top - containerRect.top + container.scrollTop,
+                bottom: elRect.top - containerRect.top + container.scrollTop + elRect.height,
+            };
+        }
+
+        function connectCards(fromIds, toId, delay, parentIndex) {
+            const toPos = getElementPosition(toId);
+            if (!toPos) return;
+            const fromPositions = fromIds.map(getElementPosition).filter(Boolean);
+            if (fromPositions.length === 0) return;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            let pathData = "";
+            const maxBottom = Math.max(...fromPositions.map(pos => pos.bottom));
+
+            const staggerOffset = (parentIndex || 0) * 30;
+            const verticalLineY = maxBottom + (lineOffsetY / 2) + staggerOffset;
+
+            fromPositions.forEach(fromPos => {
+                pathData += `M ${fromPos.cx},${fromPos.bottom} L ${fromPos.cx},${verticalLineY} `;
+            });
+            if (fromPositions.length > 1) {
+                const firstX = fromPositions[0].cx;
+                const lastX = fromPositions[fromPositions.length - 1].cx;
+                pathData += `M ${firstX},${verticalLineY} L ${lastX},${verticalLineY} `;
+            }
+            const midX = fromPositions.reduce((sum, p) => sum + p.cx, 0) / fromPositions.length;
+            
+            pathData += `M ${midX},${verticalLineY} L ${toPos.cx},${verticalLineY} L ${toPos.cx},${toPos.top} `;
+            
+            path.setAttribute("d", pathData);
+            const length = path.getTotalLength();
+            path.style.strokeDasharray = length;
+            path.style.strokeDashoffset = length;
+            path.style.animationDelay = `${delay}s`;
+            path.classList.add('animated');
+            svg.appendChild(path);
+        }
+
+        for (let i = 0; i < rounds.length - 1; i++) {
+            const parentRound = rounds[i+1];
+            parentRound.forEach((parentNode, parentIndex) => {
+                if(parentNode.participants && parentNode.participants.length > 0) {
+                    const childIds = parentNode.participants.map(p => p.uniqueId);
+                    const lineAnimationDelay = 0.3 + (i * 0.2);
+                    connectCards(childIds, parentNode.uniqueId, lineAnimationDelay, parentIndex);
+                }
+            });
+        }
+    }
 
     function applyFaceParts(championCardId, statusText) { const championEl = document.getElementById(championCardId); if (!championEl) return; const partAndColorConfig = { "髪色": { selector: '.hair-color-box', folder: '髪色画像' }, "肌色": { selector: '.skin-color-box', folder: '肌色画像' }, "髪": { selector: '.preview-kami-rinkaku', folder: '髪・輪郭画像' }, "眉": { selector: '.preview-mayu', folder: '眉画像' }, "目": { selector: '.preview-me', folder: '目画像' }, "鼻": { selector: '.preview-hana', folder: '鼻画像' }, "頬": { selector: '.preview-hoo', folder: '頬画像' }, "口": { selector: '.preview-kuchi', folder: '口画像' } }; for (const config of Object.values(partAndColorConfig)) { const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = 'none'; } } if (statusText) { for (const [key, config] of Object.entries(partAndColorConfig)) { const regex = new RegExp(`${key}:(\\d+)`); const match = statusText.match(regex); if (match && match[1]) { const partNumber = match[1]; const element = championEl.querySelector(config.selector); if (element) { element.style.backgroundImage = `url('${config.folder}/${partNumber}.png')`; } } } } }
     
@@ -232,6 +298,7 @@
             modalOverlay.style.display = 'none';
             modalContent.innerHTML = '';
         };
+
         document.querySelectorAll('.qr-code').forEach(qrEl => {
             qrEl.addEventListener('click', (event) => {
                 const qrData = event.currentTarget.dataset.id;
@@ -253,6 +320,7 @@
                 }
             });
         });
+        
         closeModalBtn.addEventListener('click', closeModal);
         modalOverlay.addEventListener('click', (event) => {
             if (event.target === modalOverlay) {
@@ -293,11 +361,20 @@
                 );
                 formattedStatus = tempStatus.replace(/\s+/g, '\n').trim();
             }
+            
             const tree = parseNode(stringToParse);
             const roundsData = [];
-            function assignDepthAndId(node, depth) { if (!roundsData[depth]) roundsData[depth] = []; node.uniqueId = `d${depth}_${roundsData[depth].length}`; roundsData[depth].push(node); node.participants.forEach(p => assignDepthAndId(p, depth + 1)); }
+            
+            function assignDepthAndId(node, depth) { 
+                if (!roundsData[depth]) roundsData[depth] = []; 
+                node.uniqueId = `d${depth}_${roundsData[depth].length}`; 
+                roundsData[depth].push(node); 
+                node.participants.forEach(p => assignDepthAndId(p, depth + 1)); 
+            }
+            
             assignDepthAndId(tree, 0);
             const reversedRounds = [...roundsData].reverse();
+            
             currentRoundsData = reversedRounds;
             let html = "";
             let cardCounter = 0;
@@ -305,15 +382,21 @@
                 const isChampionRound = i === reversedRounds.length - 1;
                 html += `<div class="round">`;
                 html += round.map(node => {
+                    
+
+                    let cardStyle = `animation-delay: ${cardCounter * 0.07}s;`;
+                    
+
                     const cardHtml = isChampionRound ?
-                         `<div class="player-card champion-card" id="${node.uniqueId}" style="animation-delay: ${cardCounter * 0.07}s">
+                         `<div class="player-card champion-card" id="${node.uniqueId}" style="${cardStyle}">
                             <div class="face-preview-container"> <div class="part-layer preview-kami-rinkaku"></div> <div class="part-layer preview-hoo"></div> <div class="part-layer preview-me"></div> <div class="part-layer preview-mayu"></div> <div class="part-layer preview-hana"></div> <div class="part-layer preview-kuchi"></div> </div>
                             <div class="color-info-container"> <div class="color-info-item">髪色<div class="color-preview-box hair-color-box"></div></div> <div class="color-info-item">肌色<div class="color-preview-box skin-color-box"></div></div> </div>
                             <div class="custom-color-palette"></div>
                             <div class="name">${node.name}</div>
                             ${formattedStatus ? `<div class="status">${formattedStatus}</div>` : ''}
                         </div>`
-                        : `<div class="player-card" id="${node.uniqueId}" style="animation-delay: ${cardCounter * 0.07}s"><div class="name">${node.name}</div>${!node.participants.length ? `<div class="qr-code" data-id="${node.id}"></div><div class="rsid-text">${node.id}</div>` : ''}</div>`;
+                        : `<div class="player-card" id="${node.uniqueId}" style="${cardStyle}"><div class="name">${node.name}</div>${!node.participants.length ? `<div class="qr-code" data-id="${node.id}"></div><div class="rsid-text">${node.id}</div>` : ''}</div>`;
+                    
                     cardCounter++;
                     return cardHtml;
                 }).join('');
@@ -336,6 +419,7 @@
             });
 
             setupQRCodeModal();
+            
             const championNode = reversedRounds[reversedRounds.length - 1][0];
             if (championNode) {
                 applyFaceParts(championNode.uniqueId, statusString);
